@@ -25,6 +25,8 @@ body[data-mode='focus'] {
   --accent-deep: #ee8dab;
   --accent-soft: #ffe4ec;
   --accent-ink: #b04a70;
+  --btn: #ec82a4;
+  --btn-deep: #cf5f86;
   --line: #f2bccd;
   --bg: #fff7fa;
   --bg2: #ffeef3;
@@ -34,6 +36,8 @@ body[data-mode='short'] {
   --accent-deep: #88c8de;
   --accent-soft: #e4f5fa;
   --accent-ink: #2b7592;
+  --btn: #69b9d6;
+  --btn-deep: #4797b8;
   --line: #bddfec;
   --bg: #f7fcfd;
   --bg2: #ebf6fa;
@@ -43,6 +47,8 @@ body[data-mode='long'] {
   --accent-deep: #b6a2e6;
   --accent-soft: #f0eafb;
   --accent-ink: #6a54b0;
+  --btn: #a48ddf;
+  --btn-deep: #8368c8;
   --line: #d8cdf1;
   --bg: #fbf9fe;
   --bg2: #f2edfb;
@@ -133,7 +139,7 @@ svg { display: block; }
   bottom: 0;
   left: 0;
   width: calc(100% / 3);
-  background: var(--accent);
+  background: var(--btn);
   transform: translateX(calc(var(--i, 0) * 100%));
   transition: transform var(--t-slide) steps(5), background-color var(--t-out) steps(2);
 }
@@ -145,7 +151,7 @@ svg { display: block; }
   font-weight: 500;
   color: var(--muted);
 }
-.tab[aria-selected='true'] { color: var(--ink); font-weight: 700; }
+.tab[aria-selected='true'] { color: #fff; font-weight: 700; text-shadow: 0 2px 0 var(--btn-deep); }
 body[data-status='running'] .tab:not([aria-selected='true']) { opacity: 0.5; cursor: default; }
 
 /* ---------- stage ---------- */
@@ -292,7 +298,7 @@ body.celebrate .k-spark { animation: twinkle 0.9s step-end infinite; }
 /* ---------- controls ---------- */
 .controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 16px; }
 .btn-main {
-  --b: var(--accent-deep);
+  --b: var(--btn-deep);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -302,8 +308,9 @@ body.celebrate .k-spark { animation: twinkle 0.9s step-end infinite; }
   padding: 0 20px;
   font-size: 22px;
   font-weight: 700;
-  color: var(--ink);
-  background: var(--accent);
+  color: #fff;
+  text-shadow: 0 2px 0 var(--btn-deep);
+  background: var(--btn);
   box-shadow:
     0 calc(var(--px) * -1) 0 0 var(--b),
     0 var(--px) 0 0 var(--b),
@@ -321,7 +328,7 @@ body.celebrate .k-spark { animation: twinkle 0.9s step-end infinite; }
     var(--px) 0 0 0 var(--b);
   transition-duration: var(--t-press);
 }
-.btn-main .ic-play, .btn-main .ic-pause { display: grid; place-items: center; }
+.btn-main .ic-play, .btn-main .ic-pause { display: grid; place-items: center; filter: drop-shadow(0 2px 0 var(--btn-deep)); }
 .btn-main .ic-pause { display: none; }
 body[data-status='running'] .btn-main .ic-play { display: none; }
 body[data-status='running'] .btn-main .ic-pause { display: grid; }
