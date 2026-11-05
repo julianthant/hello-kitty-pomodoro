@@ -8,22 +8,20 @@ import {
   durationMs,
   formatClock,
 } from '../shared/constants.js';
+import { KITTY, PAWS, brandBowSvg, digitsSvg, iconSvg, kittyMarkup, pawsMarkup } from '../shared/sprite.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const SVG_NS = 'http://www.w3.org/2000/svg';
 const MODES = ['focus', 'short', 'long'];
-
-const RING_R = 106;
-const RING_C = 2 * Math.PI * RING_R;
+const SEGMENTS = 20;
 
 let settings = { ...DEFAULT_SETTINGS };
 let state = { ...DEFAULT_STATE };
 let daily = null;
 let celebrating = false;
 let nudged = false;
-let lastKey = '';
 let lastClock = '';
+let lastFilled = -1;
 
 /* ---------- messaging + storage ---------- */
 
@@ -53,7 +51,7 @@ function view() {
 function face() {
   if (celebrating) return 'happy';
   if (state.status === 'paused') return 'sleepy';
-  if (state.status === 'running' && state.mode !== 'focus') return 'happy';
+  if (state.status === 'running') return state.mode === 'focus' ? 'focus' : 'happy';
   return 'idle';
 }
 
@@ -68,15 +66,11 @@ function caption() {
 /* ---------- rendering ---------- */
 
 function render() {
-  const key = `${state.mode}|${state.status}`;
-  const changed = key !== lastKey;
-  lastKey = key;
-  nudged = false;
-
   const body = document.body;
   body.dataset.mode = state.mode;
   body.dataset.status = state.status;
   body.dataset.face = face();
+  nudged = false;
 
   MODES.forEach((m, i) => {
     const tab = $(`.tab[data-mode="${m}"]`);
@@ -90,13 +84,6 @@ function render() {
     state.status === 'running' ? 'Pause' : state.status === 'paused' ? 'Resume' : 'Start';
   $('#caption').textContent = caption();
 
-  if (changed) {
-    // Jump the ring to its new position instead of sweeping across the card.
-    const ring = $('.ring');
-    ring.classList.add('snap');
-    requestAnimationFrame(() => requestAnimationFrame(() => ring.classList.remove('snap')));
-  }
-
   renderDots();
   renderToday();
   const task = $('#task');
@@ -108,27 +95,16 @@ function render() {
 function renderDots() {
   const box = $('#dots');
   const done = state.mode === 'long' ? LONG_EVERY : Math.min(state.cycle, LONG_EVERY);
-  const sig = String(done);
-  if (box.dataset.sig === sig) return;
-  box.dataset.sig = sig;
-  box.replaceChildren(
-    ...Array.from({ length: LONG_EVERY }, (_, i) => {
-      const svg = document.createElementNS(SVG_NS, 'svg');
-      svg.setAttribute('viewBox', '0 0 24 24');
-      if (i < done) svg.classList.add('done');
-      const use = document.createElementNS(SVG_NS, 'use');
-      use.setAttribute('href', '#i-heart');
-      svg.append(use);
-      return svg;
-    }),
-  );
+  if (box.dataset.done === String(done)) return;
+  box.dataset.done = String(done);
+  box.innerHTML = Array.from({ length: LONG_EVERY }, (_, i) =>
+    iconSvg('heart', i < done ? 'heart done' : 'heart', 2),
+  ).join('');
 }
 
 function renderToday() {
   const n = daily?.date === dayKey() ? daily.count : 0;
-  $('#today').textContent = n
-    ? `${n} ${n === 1 ? 'session' : 'sessions'} today`
-    : 'no sessions yet today';
+  $('#today').textContent = n ? `${n} ${n === 1 ? 'session' : 'sessions'} today` : 'no sessions yet today';
 }
 
 function tick() {
@@ -136,16 +112,17 @@ function tick() {
   const clock = formatClock(remaining);
   if (clock !== lastClock) {
     lastClock = clock;
-    $('#time').textContent = clock;
+    $('#time').innerHTML = digitsSvg(clock, 6);
+    $('#time').setAttribute('aria-label', clock);
     document.title = state.status === 'idle' ? 'Kitty Pomodoro' : `${clock} · Kitty Pomodoro`;
   }
 
   const progress = total > 0 ? Math.min(1, Math.max(0, 1 - remaining / total)) : 0;
-  const bar = $('#ring-bar');
-  bar.style.strokeDasharray = `${RING_C}`;
-  bar.style.strokeDashoffset = `${RING_C * (1 - progress)}`;
-  bar.style.opacity = progress < 0.002 ? '0' : '1';
-  $('#ring-knob').style.transform = `rotate(${progress * 360}deg)`;
+  const filled = Math.floor(progress * SEGMENTS + 1e-6);
+  if (filled !== lastFilled) {
+    lastFilled = filled;
+    $$('#bar i').forEach((seg, i) => seg.classList.toggle('on', i < filled));
+  }
 
   // If the worker hasn't noticed the timer ended yet, give it a nudge.
   if (state.status === 'running' && remaining <= 0 && !nudged) {
@@ -162,7 +139,7 @@ function renderSettings() {
     const [min, max] = LIMITS[key];
     if (!el.firstChild) {
       el.innerHTML = `
-        <button type="button" data-d="-1" aria-label="Decrease">−</button>
+        <button type="button" data-d="-1" aria-label="Decrease">-</button>
         <output></output>
         <button type="button" data-d="1" aria-label="Increase">+</button>`;
       el.addEventListener('click', (e) => {
@@ -173,7 +150,7 @@ function renderSettings() {
         render();
       });
     }
-    $('output', el).innerHTML = `${settings[key]} <small>min</small>`;
+    $('output', el).innerHTML = `${digitsSvg(settings[key], 2)}<small>min</small>`;
     $('[data-d="-1"]', el).disabled = settings[key] <= min;
     $('[data-d="1"]', el).disabled = settings[key] >= max;
   });
@@ -194,9 +171,17 @@ function closeSettings() {
   $('#btn-settings').focus({ preventScroll: true });
 }
 
-/* ---------- finishing a session ---------- */
+/* ---------- the mascot ---------- */
 
-// A short, earned moment: the mascot looks happy and hops twice.
+/** Replay a one-shot class. */
+function play(el, cls, ms) {
+  el.classList.remove(cls);
+  void el.getBoundingClientRect();
+  el.classList.add(cls);
+  setTimeout(() => el.classList.remove(cls), ms);
+}
+
+// Finishing a session: she hops, sparkles, and smiles for a few seconds.
 function celebrate() {
   celebrating = true;
   document.body.classList.add('celebrate');
@@ -205,7 +190,23 @@ function celebrate() {
     celebrating = false;
     document.body.classList.remove('celebrate');
     render();
-  }, 2600);
+  }, 3000);
+}
+
+// Her eyes follow the pointer, one pixel at a time.
+function lookAt(e) {
+  const kitty = $('#kitty');
+  const r = kitty.getBoundingClientRect();
+  const dx = (e.clientX - (r.left + r.width / 2)) / 160;
+  const dy = (e.clientY - (r.top + r.height * 0.6)) / 200;
+  const lx = dx > 0.25 ? 1 : dx < -0.25 ? -1 : 0;
+  const ly = dy > 0.3 ? 1 : dy < -0.3 ? -1 : 0;
+  if (kitty.dataset.lx !== String(lx) || kitty.dataset.ly !== String(ly)) {
+    kitty.dataset.lx = lx;
+    kitty.dataset.ly = ly;
+    kitty.style.setProperty('--lx', lx);
+    kitty.style.setProperty('--ly', ly);
+  }
 }
 
 /* ---------- events ---------- */
@@ -241,6 +242,19 @@ function wire() {
     saveSettings();
   });
 
+  // Poking the kitty makes her hop and send out hearts.
+  $('#kitty-wrap').addEventListener('click', () => {
+    const wrap = $('#kitty-wrap');
+    play(wrap, 'boing', 700);
+    play($('#kitty'), 'love', 2200);
+  });
+  document.addEventListener('pointermove', lookAt);
+  document.addEventListener('pointerleave', () => {
+    const k = $('#kitty');
+    k.style.setProperty('--lx', 0);
+    k.style.setProperty('--ly', 0);
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeSettings();
     const typing = ['INPUT', 'BUTTON'].includes(document.activeElement?.tagName);
@@ -253,6 +267,21 @@ function wire() {
 
 /* ---------- boot ---------- */
 
+function buildStatic() {
+  $('#kitty').setAttribute('viewBox', KITTY.viewBox);
+  $('#kitty').setAttribute('shape-rendering', 'crispEdges');
+  $('#kitty').innerHTML = kittyMarkup();
+  $('#paws').setAttribute('viewBox', PAWS.viewBox);
+  $('#paws').setAttribute('shape-rendering', 'crispEdges');
+  $('#paws').innerHTML = pawsMarkup();
+  $('#brand-bow').innerHTML = brandBowSvg();
+  $('#bar').innerHTML = '<i></i>'.repeat(SEGMENTS);
+  $$('[data-icon]').forEach((el) => {
+    const name = el.dataset.icon;
+    el.innerHTML = iconSvg(name, 'ico', name === 'gear' ? 2 : 3);
+  });
+}
+
 chrome.storage.onChanged.addListener(async (_changes, area) => {
   if (area !== 'local') return;
   const before = state.lastCompletedAt;
@@ -262,6 +291,7 @@ chrome.storage.onChanged.addListener(async (_changes, area) => {
 });
 
 (async function init() {
+  buildStatic();
   await refresh();
   wire();
   render();

@@ -1,23 +1,32 @@
 # Kitty Pomodoro
 
-A small, calm Pomodoro timer for Chrome, with a kitty on the desk. Gingham, washi tape and a sticky note for what you're studying.
+A small, calm Pomodoro timer for Chrome, in soft pink pixel art, with a little kitty keeping you company.
 
 ![Kitty Pomodoro screenshots](docs/overview.png)
 
-> An unofficial fan project. It is not affiliated with or endorsed by Sanrio. The mascot is an original drawing inspired by the style.
+> An unofficial fan project, not affiliated with or endorsed by Sanrio. The pixel art is hand-built from code.
 
 ## What it does
 
 - Focus, short break and long break timers (25 / 5 / 15 minutes by default)
 - Keeps counting with the popup closed, and shows the minutes left on the toolbar icon
 - A notification and a soft chime when a session ends
-- Four hearts show how many focus sessions are left before a long break
+- A segmented pixel progress bar, and four hearts that fill up before each long break
 - A sticky note for what you're working on, and a quiet count of today's sessions
-- The kitty blinks, naps when you pause, and hops twice when you finish a session
 
 Settings are deliberately tiny: the three durations, and sound on or off.
 
-Keyboard: `Space` starts or pauses, the arrow keys switch modes. Motion is kept to a minimum and turns off with `prefers-reduced-motion`.
+## The kitty
+
+She's a pixel sprite generated in code (`shared/sprite.js`), and every animation moves in whole pixels:
+
+- blinks, twitches her ears and wiggles her bow now and then
+- her eyes follow your cursor
+- taps the card with her paws while you focus
+- floats little hearts on breaks, and naps with a "z" when you pause
+- hops and sparkles when you finish a session (and hops if you poke her)
+
+Keyboard: `Space` starts or pauses, the arrow keys switch modes. All motion turns off with `prefers-reduced-motion`.
 
 ## Install
 
@@ -34,16 +43,17 @@ Needs Chrome 116 or newer.
 | --- | --- |
 | `background.js` | Service worker. Owns the timer, alarms, badge and notifications |
 | `popup/` | The popup UI |
+| `shared/sprite.js` | The pixel kitty, icons and digit font, all drawn from small grids |
 | `offscreen.js` | Plays the chime while the popup is closed (Manifest V3 offscreen document) |
-| `shared/` | Defaults and helpers, plus a Web Audio music-box chime (no audio files) |
-| `scripts/make-icons.js` | Regenerates the toolbar icons from `icons/kitty.svg` |
+| `shared/chime.js` | A Web Audio music-box chime (no audio files) |
+| `scripts/make-icons.mjs` | Regenerates the toolbar icons from the sprite |
 | `scripts/package.sh` | Builds `dist/kitty-pomodoro.zip` for the Chrome Web Store |
 
 The timer stores an absolute end time, so it stays accurate even if Chrome puts the service worker to sleep or you restart the browser. Nothing leaves your machine. Permissions: `storage`, `alarms`, `notifications`, `offscreen`.
 
 ## Credits
 
-- Fonts: [Fredoka](https://fonts.google.com/specimen/Fredoka) and [Patrick Hand](https://fonts.google.com/specimen/Patrick+Hand), under the SIL Open Font License (see `fonts/`)
+- Font: [Pixelify Sans](https://fonts.google.com/specimen/Pixelify+Sans), under the SIL Open Font License (see `fonts/`)
 - Design and motion restraint informed by [emilkowalski/skills](https://github.com/emilkowalski/skills) and [leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill)
 
 ## License
